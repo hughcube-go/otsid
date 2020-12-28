@@ -3,6 +3,7 @@ package otsid
 import (
 	"errors"
 	"github.com/aliyun/aliyun-tablestore-go-sdk/tablestore"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -22,6 +23,12 @@ type OtsId struct {
 	otsClient     *tablestore.TableStoreClient
 	otsClientOnce *sync.Once
 }
+
+type ids []int64
+
+func (p ids) Len() int           { return len(p) }
+func (p ids) Less(i, j int) bool { return p[i] < p[j] }
+func (p ids) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 type Config interface {
 	GetEndPoint() string
@@ -72,7 +79,7 @@ func (o *OtsId) getOtsClient() *tablestore.TableStoreClient {
 	return o.otsClient
 }
 
-func (o *OtsId) GetId(types ...string) (int64, error) {
+func (o *OtsId) One(types ...string) (int64, error) {
 	if 0 >= len(types) {
 		types = append(types, o.DefaultType)
 	}
@@ -106,4 +113,31 @@ func (o *OtsId) GetId(types ...string) (int64, error) {
 	}
 
 	return id, nil
+}
+
+func (o *OtsId) Batch(count int, types ...string) ([]int64, error) {
+	var ids ids
+	var err error
+
+	wg := new(sync.WaitGroup)
+	mu := new(sync.Mutex)
+	for i := 0; i <= count; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			id, er := o.One(types...)
+
+			mu.Lock()
+			defer mu.Unlock()
+			if er == nil {
+				ids = append(ids, id)
+			} else {
+				err = er
+			}
+		}()
+	}
+	wg.Wait()
+	sort.Sort(ids)
+
+	return ids, err
 }

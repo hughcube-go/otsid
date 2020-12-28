@@ -53,6 +53,8 @@ func New(config Config) *OtsId {
 		TypeColumnName:  config.GetTypeColumnName(),
 		IdColumnName:    config.GetIdColumnName(),
 		DefaultType:     config.GetDefaultType(),
+
+		otsClientOnce: new(sync.Once),
 	}
 
 	if "" == client.DefaultType {

@@ -1,4 +1,4 @@
-module github.com/mscube/otsid
+module github.com/hughcube-go/otsid
 
 go 1.23
 

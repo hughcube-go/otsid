@@ -9,19 +9,13 @@ import (
 )
 
 type OtsId struct {
-	EndPoint        string
-	InstanceName    string
-	AccessKeyId     string
-	AccessKeySecret string
-
-	TableName      string
-	TypeColumnName string
-	IdColumnName   string
+	TableName  string
+	TypeColumn string
+	IdColumn   string
 
 	DefaultType string
 
-	otsClient     *tablestore.TableStoreClient
-	otsClientOnce *sync.Once
+	Ots *tablestore.TableStoreClient
 }
 
 type ids []int64
@@ -29,57 +23,6 @@ type ids []int64
 func (p ids) Len() int           { return len(p) }
 func (p ids) Less(i, j int) bool { return p[i] < p[j] }
 func (p ids) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-type Config interface {
-	GetEndPoint() string
-	GetInstanceName() string
-	GetAccessKeyId() string
-	GetAccessKeySecret() string
-
-	GetTableName() string
-	GetTypeColumnName() string
-	GetIdColumnName() string
-
-	GetDefaultType() string
-}
-
-func New(config Config) *OtsId {
-	client := &OtsId{
-		EndPoint:        config.GetEndPoint(),
-		InstanceName:    config.GetInstanceName(),
-		AccessKeyId:     config.GetAccessKeyId(),
-		AccessKeySecret: config.GetAccessKeySecret(),
-		TableName:       config.GetTableName(),
-		TypeColumnName:  config.GetTypeColumnName(),
-		IdColumnName:    config.GetIdColumnName(),
-		DefaultType:     config.GetDefaultType(),
-
-		otsClientOnce: new(sync.Once),
-	}
-
-	if "" == client.DefaultType {
-		client.DefaultType = "default"
-	}
-
-	return client
-}
-
-func (o *OtsId) getOtsClient() *tablestore.TableStoreClient {
-	o.otsClientOnce.Do(func() {
-		if o.otsClient != nil {
-			return
-		}
-
-		o.otsClient = tablestore.NewClient(
-			o.EndPoint,
-			o.InstanceName,
-			o.AccessKeyId,
-			o.AccessKeySecret,
-		)
-	})
-
-	return o.otsClient
-}
 
 func (o *OtsId) One(types ...string) (int64, error) {
 	if 0 >= len(types) {
@@ -92,12 +35,12 @@ func (o *OtsId) One(types ...string) (int64, error) {
 	request.PutRowChange.TableName = o.TableName
 
 	request.PutRowChange.PrimaryKey = new(tablestore.PrimaryKey)
-	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumn(o.TypeColumnName, strings.Join(types, ","))
-	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumnWithAutoIncrement(o.IdColumnName)
+	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumn(o.TypeColumn, strings.Join(types, ","))
+	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumnWithAutoIncrement(o.IdColumn)
 	request.PutRowChange.SetCondition(tablestore.RowExistenceExpectation_IGNORE)
 	request.PutRowChange.SetReturnPk()
 
-	response, err := o.getOtsClient().PutRow(request)
+	response, err := o.Ots.PutRow(request)
 
 	if err != nil {
 		return 0, err
@@ -123,7 +66,7 @@ func (o *OtsId) Batch(count int, types ...string) ([]int64, error) {
 
 	wg := new(sync.WaitGroup)
 	mu := new(sync.Mutex)
-	for i := 0; i <= count; i++ {
+	for i := 1; i <= count; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

@@ -22,13 +22,6 @@ func (p ids) Less(i, j int) bool { return p[i] < p[j] }
 func (p ids) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (o *OtsId) One(types ...string) (int64, error) {
-	if 0 >= len(types) && 0 < len(o.DefaultType) {
-		types = append(types, o.DefaultType)
-	}
-
-	if 0 >= len(types) {
-		types = append(types, "default")
-	}
 
 	request := new(tablestore.PutRowRequest)
 
@@ -36,7 +29,7 @@ func (o *OtsId) One(types ...string) (int64, error) {
 	request.PutRowChange.TableName = o.TableName
 
 	request.PutRowChange.PrimaryKey = new(tablestore.PrimaryKey)
-	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumn("type", strings.Join(types, ","))
+	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumn("type", o.buildType(types...))
 	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumnWithAutoIncrement("id")
 	request.PutRowChange.AddColumn("created_at", time.Now().Format(time.RFC3339Nano))
 	request.PutRowChange.SetCondition(tablestore.RowExistenceExpectation_IGNORE)
@@ -87,4 +80,27 @@ func (o *OtsId) Batch(count int, types ...string) ([]int64, error) {
 	sort.Sort(ids)
 
 	return ids, err
+}
+
+func (o *OtsId) buildType(types ...string) string {
+	// 过滤空字符串
+	list := []string{}
+	for _, v := range types {
+		if 0 < len(v) {
+			list = append(list, v)
+		}
+	}
+	types = list
+
+	// 如果type为空尝试使用默认type
+	if 0 >= len(types) && 0 < len(o.DefaultType) {
+		types = append(types, o.DefaultType)
+	}
+
+	// 如果type为, 直接使用default
+	if 0 >= len(types) {
+		types = append(list, "default")
+	}
+
+	return strings.Join(types, ",")
 }

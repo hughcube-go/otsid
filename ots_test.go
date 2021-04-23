@@ -34,7 +34,7 @@ func Test_Batch(t *testing.T) {
 	a := assert.New(t)
 
 	count := 10
-	ids, err := test_get_otsId().Batch(count)
+	ids, err := test_get_otsId().Batch(count, "")
 
 	a.Nil(err)
 	a.IsType([]int64{}, ids)

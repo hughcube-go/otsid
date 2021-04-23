@@ -17,8 +17,6 @@ func test_get_otsId() *OtsId {
 
 	return &OtsId{
 		TableName:  "msid_source",
-		TypeColumn: "type",
-		IdColumn:   "id",
 		Ots:        ots,
 	}
 }

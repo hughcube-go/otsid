@@ -6,16 +6,13 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 type OtsId struct {
-	TableName  string
-	TypeColumn string
-	IdColumn   string
-
+	TableName   string
 	DefaultType string
-
-	Ots *tablestore.TableStoreClient
+	Ots         *tablestore.TableStoreClient
 }
 
 type ids []int64
@@ -25,8 +22,12 @@ func (p ids) Less(i, j int) bool { return p[i] < p[j] }
 func (p ids) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (o *OtsId) One(types ...string) (int64, error) {
-	if 0 >= len(types) {
+	if 0 >= len(types) && 0 < len(o.DefaultType) {
 		types = append(types, o.DefaultType)
+	}
+
+	if 0 >= len(types) {
+		types = append(types, "default")
 	}
 
 	request := new(tablestore.PutRowRequest)
@@ -35,8 +36,9 @@ func (o *OtsId) One(types ...string) (int64, error) {
 	request.PutRowChange.TableName = o.TableName
 
 	request.PutRowChange.PrimaryKey = new(tablestore.PrimaryKey)
-	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumn(o.TypeColumn, strings.Join(types, ","))
-	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumnWithAutoIncrement(o.IdColumn)
+	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumn("type", strings.Join(types, ","))
+	request.PutRowChange.PrimaryKey.AddPrimaryKeyColumnWithAutoIncrement("id")
+	request.PutRowChange.AddColumn("created_at", time.Now().Format(time.RFC3339Nano))
 	request.PutRowChange.SetCondition(tablestore.RowExistenceExpectation_IGNORE)
 	request.PutRowChange.SetReturnPk()
 
